@@ -1,7 +1,10 @@
-import logging, os, requests, telegram, time
+import logging
+import os
+import requests
+import telegram
+import time
 
 from dotenv import load_dotenv
-
 
 
 load_dotenv()
@@ -20,15 +23,18 @@ HOMEWORK_STATUSES = {
 
 logging.basicConfig(
     level=logging.DEBUG,
-    filename='program.log', 
+    filename='program.log',
     format='%(asctime)d, %(levelname)s, %(message)s'
 )
 
+
 def send_message(bot, message):
+    """Отправка сообщения в телеграмм"""
     bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
 
 
 def get_api_answer(url, current_timestamp):
+    """Отправлять запрос к API домашки на эндпоинт"""
     headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
     date = {'from_date': current_timestamp or time.time()}
     response = requests.get(url, headers=headers, params=date)
@@ -36,9 +42,10 @@ def get_api_answer(url, current_timestamp):
         return response.json()
     logging.error('Код не 200!')
     raise Exception
-        
+
 
 def parse_status(homework):
+    """Проверка изменения статуса"""
     homework_name = homework['homework_name']
     verdict = HOMEWORK_STATUSES[homework['status']]
     message = f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -46,6 +53,7 @@ def parse_status(homework):
 
 
 def check_response(response):
+    """Проверять полученный ответ на корректность"""
     homework = response.get('homeworks')[0]
     if homework['status'] not in HOMEWORK_STATUSES.keys():
         logging.error('Неправильный ключ')
@@ -55,7 +63,9 @@ def check_response(response):
         raise Exception
     return homework
 
+
 def main():
+    """Выполение"""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
     while True:
