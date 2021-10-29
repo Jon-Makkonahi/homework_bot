@@ -22,9 +22,9 @@ HOMEWORK_STATUSES = {
 }
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.ERROR,
     filename='program.log',
-    format='%(asctime)d, %(levelname)s, %(message)s'
+    format='%(asctime)s, %(levelname)s, %(message)s'
 )
 
 
@@ -41,7 +41,7 @@ def get_api_answer(url, current_timestamp):
     if response.status_code == 200:
         return response.json()
     logging.error('Код не 200!')
-    raise Exception
+    raise ValueError
 
 
 def parse_status(homework):
@@ -57,17 +57,17 @@ def check_response(response):
     homework = response.get('homeworks')[0]
     if homework['status'] not in HOMEWORK_STATUSES.keys():
         logging.error('Неправильный ключ')
-        raise Exception
+        raise KeyError
     if homework is None:
         logging.error('Домашка не изменилась')
-        raise Exception
+        raise KeyError
     return homework
 
 
 def main():
     """Выполение."""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time())
+    current_timestamp = int(time.time())-RETRY_TIME
     while True:
         try:
             response = get_api_answer(ENDPOINT, current_timestamp)
