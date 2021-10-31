@@ -64,10 +64,10 @@ def main():
     )
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.ERROR)
-    handler = RotatingFileHandler('program.log', maxBytes=50000000, backupCount=5)
+    handler = RotatingFileHandler('program.log', maxBytes=50000, backupCount=5)
     logger.addHandler(handler)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = int(time.time())-RETRY_TIME
+    current_timestamp = int(time.time()) - RETRY_TIME
     while True:
         try:
             response = get_api_answer(ENDPOINT, current_timestamp)
@@ -79,6 +79,6 @@ def main():
             message = f'Сбой в работе программы: {error}'
             send_message(bot, message)
 
-            
+
 if __name__ == '__main__':
     main()
