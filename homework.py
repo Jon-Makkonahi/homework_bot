@@ -1,10 +1,11 @@
 import logging
 import os
-import requests
-import telegram
 import time
 
 from dotenv import load_dotenv
+from logging.handlers import RotatingFileHandler
+import requests
+import telegram
 
 
 load_dotenv()
@@ -15,17 +16,12 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 RETRY_TIME = 600
 ENDPOINT = os.getenv('ENDPOINT')
 
-HOMEWORK_STATUSES = {
+HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена, в ней нашлись ошибки.'
 }
-
-logging.basicConfig(
-    level=logging.ERROR,
-    filename='program.log',
-    format='%(asctime)s, %(levelname)s, %(message)s'
-)
+HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
 def send_message(bot, message):
@@ -35,37 +31,41 @@ def send_message(bot, message):
 
 def get_api_answer(url, current_timestamp):
     """Отправлять запрос к API домашки на эндпоинт."""
-    headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-    date = {'from_date': current_timestamp or time.time()}
-    response = requests.get(url, headers=headers, params=date)
+    date = {'from_date': current_timestamp}
+    response = requests.get(url, headers=HEADERS, params=date)
     if response.status_code == 200:
         return response.json()
-    logging.error('Код не 200!')
-    raise ValueError
+    raise ConnectionError('Код не 200!')
 
 
 def parse_status(homework):
     """Проверка изменения статуса."""
     homework_name = homework['homework_name']
-    verdict = HOMEWORK_STATUSES[homework['status']]
-    message = f'Изменился статус проверки работы "{homework_name}". {verdict}'
-    return message
+    verdict = HOMEWORK_VERDICTS[homework['status']]
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def check_response(response):
     """Проверять полученный ответ на корректность."""
     homework = response.get('homeworks')[0]
-    if homework['status'] not in HOMEWORK_STATUSES.keys():
-        logging.error('Неправильный ключ')
-        raise KeyError
+    if homework['status'] not in HOMEWORK_VERDICTS.keys():
+        raise KeyError('Неправильный ключ')
     if homework is None:
-        logging.error('Домашка не изменилась')
-        raise KeyError
+        raise ValueError('Домашка не изменилась')
     return homework
 
 
 def main():
     """Выполение."""
+    logging.basicConfig(
+        level=logging.ERROR,
+        filename='program.log',
+        format='%(asctime)s, %(levelname)s, %(message)s, %(lineno)s'
+    )
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.ERROR)
+    handler = RotatingFileHandler('program.log', maxBytes=50000000, backupCount=5)
+    logger.addHandler(handler)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())-RETRY_TIME
     while True:
@@ -80,7 +80,6 @@ def main():
             send_message(bot, message)
             time.sleep(RETRY_TIME)
             continue
-
 
 if __name__ == '__main__':
     main()
