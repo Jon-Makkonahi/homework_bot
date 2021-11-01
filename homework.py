@@ -58,8 +58,8 @@ def get_api_answer(url, current_timestamp):
 def parse_status(homework):
     """Проверка изменения статуса."""
     return MESSAGE.format(
-        homework_name = homework['homework_name'],
-        verdict = HOMEWORK_VERDICTS[homework['status']]
+        homework_name=homework['homework_name'],
+        verdict=HOMEWORK_VERDICTS[homework['status']]
     )
 
 
@@ -90,6 +90,7 @@ def main():
                 time.sleep(RETRY_TIME)
             except Exception as error:
                 print(f'Произошёл сбой бота {error}')
+
 
 if __name__ == '__main__':
     main()
