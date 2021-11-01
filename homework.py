@@ -85,8 +85,11 @@ def main():
             time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            send_message(bot, message)
-            time.sleep(RETRY_TIME)
+            try:
+                send_message(bot, message)
+                time.sleep(RETRY_TIME)
+            except Exception as error:
+                print(f'Произошёл сбой бота {error}')
 
 if __name__ == '__main__':
     main()
