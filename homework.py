@@ -3,6 +3,7 @@ import os
 import time
 
 from dotenv import load_dotenv
+import http
 import requests
 import telegram
 
@@ -54,7 +55,7 @@ def get_api_answer(url, current_timestamp):
             if error in response.json():
                 logging.error(text.format(error=error), exc_info=True)
                 raise KeyError(text.format(error=error))      
-        if response.status_code == 200:
+        if response.status_code == http.HTTPStatus.OK:
             return response.json()
         raise requests.exceptions.HTTPError(INVALID_CODE)
     except requests.exceptions.ConnectionError as error:
