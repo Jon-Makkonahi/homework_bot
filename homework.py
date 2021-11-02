@@ -17,7 +17,7 @@ RETRY_TIME = 600
 
 STATUS_CHANGE = 'Изменился статус проверки работы "{homework_name}". {verdict}'
 NO_ANSWER = (
-    'Не удалось получить ответ от сервера: {error}\n'
+    'Не удалось получить ответ от сервера:\n{error}\n'
     '{url}\n{headers}\n{params}'
 )
 NOT_SEND_MESSAGE = 'Не удалось отправить сообщение: {error}'
