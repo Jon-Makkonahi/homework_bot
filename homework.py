@@ -11,13 +11,18 @@ load_dotenv()
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 
 RETRY_TIME = 600
 
-MESSAGE = 'Изменился статус проверки работы "{homework_name}". {verdict}'
-ERR = 'Не удалось получить ответ: {err}'
-SEND_MESSAGE = 'Не удалось отправить сообщение: {e}'
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
+STATUS_CHANGE = 'Изменился статус проверки работы "{homework_name}". {verdict}'
+NO_ANSWER = '{response}\nНе удалось получить ответ: {error}'
+NOT_SEND_MESSAGE = 'Не удалось отправить сообщение: {error}'
+GLITCH = 'Сбой в работе программы: {error}'
+INVALID_STATUS = 'Неверный статус д/з {status}'
+INVALID_SERTIFICATION = 'Ошибка с сертификацией {error}'
+FAIL_TIME = 'Ошибка по времени'
+INVALID_CODE = 'Не удалось проверить статус'
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -31,9 +36,9 @@ def send_message(bot, message):
     """Отправка сообщения в телеграмм."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-    except Exception as e:
-        print(SEND_MESSAGE.format(e=e))
-        logging.error('Произошло исключение', exc_info=True)
+    except Exception as error:
+        print(NOT_SEND_MESSAGE.format(error=error))
+        logging.error(NOT_SEND_MESSAGE.format(error=error), exc_info=True)
 
 
 def get_api_answer(url, current_timestamp):
@@ -41,23 +46,28 @@ def get_api_answer(url, current_timestamp):
     try:
         date = {'from_date': current_timestamp}
         response = requests.get(url, headers=HEADERS, params=date)
+        cases = [
+            ['code', INVALID_SERTIFICATION],
+            ['error', FAIL_TIME]
+        ]
+        for error, text in cases:
+            if error in response.json():
+                logging.error(text.format(error=error), exc_info=True)
+                raise KeyError(text.format(error=error))      
         if response.status_code == 200:
             return response.json()
-        raise ValueError('Код не 200!')
-    except Exception as err:
-        print(ERR.format(err=err))
-        logging.error('Произошло исключение', exc_info=True)
-    if 'code' in response:
-        logging.error('Ошибка с сертификацией', exc_info=True)
-        raise KeyError('Ошибка с сертификацией')
-    if 'error' in response:
-        logging.error('Ошибка по времени', exc_info=True)
-        raise KeyError('Ошибка по времени')
-
+        raise requests.exceptions.HTTPError(INVALID_CODE)
+    except requests.exceptions.ConnectionError as error:
+        logging.error(
+            NO_ANSWER.format(response=response, error=error),
+            exc_info=True
+        )
+        raise ValueError(NO_ANSWER.format(response=response, error=error))
+    
 
 def parse_status(homework):
     """Проверка изменения статуса."""
-    return MESSAGE.format(
+    return STATUS_CHANGE.format(
         homework_name=homework['homework_name'],
         verdict=HOMEWORK_VERDICTS[homework['status']]
     )
@@ -65,10 +75,9 @@ def parse_status(homework):
 
 def check_response(response):
     """Проверять полученный ответ на корректность."""
-    homework = response.get('homeworks')[0]
+    homework = response['homeworks'][0]
     if homework['status'] not in HOMEWORK_VERDICTS:
-        logging.error('Неверный статус д/з', exc_info=True)
-        raise KeyError('Неверный статус д/з')
+        raise ValueError(INVALID_STATUS.format(status=homework['status']))
     return homework
 
 
@@ -82,21 +91,20 @@ def main():
             homework = check_response(response)
             message = parse_status(homework)
             send_message(bot, message)
-            time.sleep(RETRY_TIME)
         except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            try:
-                send_message(bot, message)
-                time.sleep(RETRY_TIME)
-            except Exception as error:
-                print(f'Произошёл сбой бота {error}')
+            message = GLITCH.format(error)
+            send_message(bot, message)
+            logging.error(message, exc_info=True)
+        time.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
-    main()
     logging.basicConfig(
-        level=logging.ERROR,
-        filename='homework_bot/program.log',
+        level=logging.DEBUG,
         format='%(asctime)s, %(levelname)s, %(lineno)s, %(message)s',
-        handlers=[logging.StreamHandler(), 'handler.log']
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(__file__+'.log')
+        ]
     )
+    main()
