@@ -54,7 +54,7 @@ def get_api_answer(url, current_timestamp):
         for error, text in cases:
             if error in response.json():
                 logging.error(text.format(error=error), exc_info=True)
-                raise KeyError(text.format(error=error))      
+                raise KeyError(text.format(error=error))
         if response.status_code == http.HTTPStatus.OK:
             return response.json()
         raise requests.exceptions.HTTPError(INVALID_CODE)
@@ -64,7 +64,7 @@ def get_api_answer(url, current_timestamp):
             exc_info=True
         )
         raise ValueError(NO_ANSWER.format(response=response, error=error))
-    
+
 
 def parse_status(homework):
     """Проверка изменения статуса."""
@@ -105,7 +105,7 @@ if __name__ == '__main__':
         format='%(asctime)s, %(levelname)s, %(lineno)s, %(message)s',
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(__file__+'.log')
+            logging.FileHandler(__file__ + '.log')
         ]
     )
     main()
