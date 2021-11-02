@@ -3,7 +3,6 @@ import os
 import time
 
 from dotenv import load_dotenv
-import http
 import requests
 import telegram
 
@@ -17,13 +16,16 @@ ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 RETRY_TIME = 600
 
 STATUS_CHANGE = 'Изменился статус проверки работы "{homework_name}". {verdict}'
-NO_ANSWER = '{response}\nНе удалось получить ответ: {error}'
+NO_ANSWER = (
+    'Не удалось получить ответ от сервера: {error}\n'
+    '{url}\n{headers}\n{params}'
+)
 NOT_SEND_MESSAGE = 'Не удалось отправить сообщение: {error}'
 GLITCH = 'Сбой в работе программы: {error}'
 INVALID_STATUS = 'Неверный статус д/з {status}'
-INVALID_SERTIFICATION = 'Ошибка с сертификацией {error}'
-FAIL_TIME = 'Ошибка по времени'
-INVALID_CODE = 'Не удалось проверить статус'
+INVALID_SERTIFICATION = 'Ошибка с сертификацией {error} - {meaning}'
+FAIL_TIME = 'Ошибка по времени {error} - {meaning}'
+INVALID_CODE = 'Неверный код ответа - {code}'
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -38,7 +40,6 @@ def send_message(bot, message):
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
     except Exception as error:
-        print(NOT_SEND_MESSAGE.format(error=error))
         logging.error(NOT_SEND_MESSAGE.format(error=error), exc_info=True)
 
 
@@ -47,23 +48,27 @@ def get_api_answer(url, current_timestamp):
     try:
         date = {'from_date': current_timestamp}
         response = requests.get(url, headers=HEADERS, params=date)
-        cases = [
-            ['code', INVALID_SERTIFICATION],
-            ['error', FAIL_TIME]
-        ]
-        for error, text in cases:
-            if error in response.json():
-                logging.error(text.format(error=error), exc_info=True)
-                raise KeyError(text.format(error=error))
-        if response.status_code == http.HTTPStatus.OK:
-            return response.json()
-        raise requests.exceptions.HTTPError(INVALID_CODE)
-    except requests.exceptions.ConnectionError as error:
-        logging.error(
-            NO_ANSWER.format(response=response, error=error),
-            exc_info=True
-        )
-        raise ValueError(NO_ANSWER.format(response=response, error=error))
+    except requests.exceptions.HTTPError as error:
+        raise requests.exceptions.HTTPError(NO_ANSWER.format(
+            error=error,
+            url=url,
+            headers=HEADERS,
+            params=date
+        ))
+    response_json = response.json()
+    cases = [
+        ['code', INVALID_SERTIFICATION],
+        ['error', FAIL_TIME]
+    ]
+    for error, text in cases:
+        if error in response_json:
+            raise ValueError(text.format(
+                error=error,
+                meaning=response_json[error]
+            ))
+    if response.status_code == 200:
+        return response_json
+    raise ValueError(INVALID_CODE.format(code=response.status_code))
 
 
 def parse_status(homework):
@@ -92,10 +97,11 @@ def main():
             homework = check_response(response)
             message = parse_status(homework)
             send_message(bot, message)
+            current_timestamp = response('current_date',)
         except Exception as error:
             message = GLITCH.format(error)
             send_message(bot, message)
-            logging.error(message, exc_info=True)
+            logging.error(message)
         time.sleep(RETRY_TIME)
 
 
