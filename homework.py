@@ -73,7 +73,7 @@ def get_api_answer(url, current_timestamp):
                 **request_parametrs
             ))
     if response.status_code != 200:
-        raise ConnectionError(INVALID_CODE.format(
+        raise RuntimeError(INVALID_CODE.format(
             code=response.status_code,
             url=url,
             headers=HEADERS,
