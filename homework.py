@@ -4,6 +4,7 @@ import time
 
 from dotenv import load_dotenv
 import requests
+from requests.api import request
 import telegram
 
 
@@ -22,14 +23,14 @@ NO_ANSWER = (
 )
 NOT_SEND_MESSAGE = 'Не удалось отправить сообщение: {error}'
 GLITCH = 'Сбой в работе программы: {error}'
-INVALID_STATUS = 'Неверный статус д/з {status}'
+INVALID_STATUS = 'Прошлый статус д/з {status}'
 ERROR = (
     'Ошибка {error} - {meaning}\n',
     '{url}\n{headers}\n{params}'
 )
 INVALID_CODE = (
-    'Неверный код ответа - {code}\n',
-    'Информация\n{url}\n{headers}\n{params}'
+    'Ошибка запроса - {code}\n',
+    'Информация:\n{url}\n{headers}\n{params}'
 )
 
 HOMEWORK_VERDICTS = {
@@ -52,9 +53,10 @@ def get_api_answer(url, current_timestamp):
     """Отправлять запрос к API домашки на эндпоинт."""
     try:
         date = {'from_date': current_timestamp}
-        response = requests.get(url, headers=HEADERS, params=date)
+        request_parametrs = dict(url=url, headers=HEADERS, params=date)
+        response = requests.get(**request_parametrs)
     except requests.exceptions.RequestException as error:
-        raise requests.exceptions.RequestException(NO_ANSWER.format(
+        raise ConnectionError(NO_ANSWER.format(
             error=error,
             url=url,
             headers=HEADERS,
@@ -68,14 +70,16 @@ def get_api_answer(url, current_timestamp):
                 url=url,
                 headers=HEADERS,
                 params=date,
-                meaning=response_json[error]
+                meaning=response_json[error],
+                **request_parametrs
             ))
     if response.status_code != 200:
-        raise requests.exceptions.RequestException(INVALID_CODE.format(
+        raise ConnectionError(INVALID_CODE.format(
             code=response.status_code,
             url=url,
             headers=HEADERS,
-            params=date
+            params=date,
+            **request_parametrs
         ))
     return response_json
 
@@ -106,9 +110,7 @@ def main():
             homework = check_response(response)
             message = parse_status(homework)
             send_message(bot, message)
-            current_date = response.get('current_date',)
-            if current_date is not None:
-                current_timestamp = current_date
+            current_timestamp = response.get('current_date', current_timestamp)
         except Exception as error:
             message = GLITCH.format(error)
             logging.error(message, stack_info=True)
