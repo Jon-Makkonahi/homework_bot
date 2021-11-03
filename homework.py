@@ -23,9 +23,14 @@ NO_ANSWER = (
 NOT_SEND_MESSAGE = 'Не удалось отправить сообщение: {error}'
 GLITCH = 'Сбой в работе программы: {error}'
 INVALID_STATUS = 'Неверный статус д/з {status}'
-INVALID_SERTIFICATION = 'Ошибка с сертификацией {error} - {meaning}'
-FAIL_TIME = 'Ошибка по времени {error} - {meaning}'
-INVALID_CODE = 'Неверный код ответа - {code}'
+ERROR = (
+    'Ошибка {error} - {meaning}\n',
+    '{url}\n{headers}\n{params}'
+)
+INVALID_CODE = (
+    'Неверный код ответа - {code}\n',
+    'Информация\n{url}\n{headers}\n{params}'
+)
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -48,27 +53,31 @@ def get_api_answer(url, current_timestamp):
     try:
         date = {'from_date': current_timestamp}
         response = requests.get(url, headers=HEADERS, params=date)
-    except requests.exceptions.HTTPError as error:
-        raise requests.exceptions.HTTPError(NO_ANSWER.format(
+    except requests.exceptions.RequestException as error:
+        raise requests.exceptions.RequestException(NO_ANSWER.format(
             error=error,
             url=url,
             headers=HEADERS,
             params=date
         ))
     response_json = response.json()
-    cases = [
-        ['code', INVALID_SERTIFICATION],
-        ['error', FAIL_TIME]
-    ]
-    for error, text in cases:
+    for error in ('code', 'error'):
         if error in response_json:
-            raise ValueError(text.format(
+            raise RuntimeError(ERROR.format(
                 error=error,
+                url=url,
+                headers=HEADERS,
+                params=date,
                 meaning=response_json[error]
             ))
-    if response.status_code == 200:
-        return response_json
-    raise ValueError(INVALID_CODE.format(code=response.status_code))
+    if response.status_code != 200:
+        raise requests.exceptions.RequestException(INVALID_CODE.format(
+            code=response.status_code,
+            url=url,
+            headers=HEADERS,
+            params=date
+        ))
+    return response_json
 
 
 def parse_status(homework):
@@ -97,11 +106,13 @@ def main():
             homework = check_response(response)
             message = parse_status(homework)
             send_message(bot, message)
-            current_timestamp = response('current_date',)
+            current_date = response.get('current_date',)
+            if current_date is not None:
+                current_timestamp = current_date
         except Exception as error:
             message = GLITCH.format(error)
+            logging.error(message, stack_info=True)
             send_message(bot, message)
-            logging.error(message)
         time.sleep(RETRY_TIME)
 
 
