@@ -22,7 +22,7 @@ NO_ANSWER = (
 )
 NOT_SEND_MESSAGE = 'Не удалось отправить сообщение: {error}'
 GLITCH = 'Сбой в работе программы: {error}'
-INVALID_STATUS = 'Прошлый статус д/з {status}'
+INVALID_STATUS = 'Неожиданный статус д/з {status}'
 ERROR = (
     'Ошибка {error} - {meaning}\n',
     '{url}\n{headers}\n{params}'
@@ -57,27 +57,19 @@ def get_api_answer(url, current_timestamp):
     except requests.exceptions.RequestException as error:
         raise ConnectionError(NO_ANSWER.format(
             error=error,
-            url=url,
-            headers=HEADERS,
-            params=date
+            **request_parametrs
         ))
     response_json = response.json()
     for error in ('code', 'error'):
         if error in response_json:
             raise RuntimeError(ERROR.format(
                 error=error,
-                url=url,
-                headers=HEADERS,
-                params=date,
                 meaning=response_json[error],
                 **request_parametrs
             ))
     if response.status_code != 200:
         raise RuntimeError(INVALID_CODE.format(
             code=response.status_code,
-            url=url,
-            headers=HEADERS,
-            params=date,
             **request_parametrs
         ))
     return response_json
@@ -102,8 +94,8 @@ def check_response(response):
 def main():
     """Выполение."""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    current_timestamp = int(time.time()) - RETRY_TIME
     while True:
-        current_timestamp = int(time.time()) - RETRY_TIME
         try:
             response = get_api_answer(ENDPOINT, current_timestamp)
             homework = check_response(response)
