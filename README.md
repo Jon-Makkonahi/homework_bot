@@ -21,7 +21,7 @@ git clone git@github.com:Jon-Makkonahi/homework_bot.git
 ```
 
 ```
-cd api_yambd
+cd homework_bot
 ```
 
 Cоздать и активировать виртуальное окружение:
