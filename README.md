@@ -9,8 +9,10 @@ Telegram-бота, который будет обращаться к API сер�
 - Daniil Bibikov (Jon-Makkonahi) https://github.com/Jon-Makkonahi
 
 ### Технологии:
-- Python
-- Djangо
+-  Python 3
+- Django REST Framework
+- SQLite3
+- SimpleJWT
 
 ### Как запустить проект:
 
